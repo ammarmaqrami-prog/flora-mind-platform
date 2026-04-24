@@ -40,13 +40,12 @@ export async function GET() {
       );
     `);
 
-    // 4. إنشاء جدول الاشتراكات (تمت إضافة feature_name ليتوافق مع featureAccess)
+    // 4. إنشاء جدول الاشتراكات الأساسي
     await query(`
       CREATE TABLE IF NOT EXISTS subscriptions (
           id SERIAL PRIMARY KEY,
           user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
           plan_name VARCHAR(50) NOT NULL,
-          feature_name VARCHAR(100), 
           status VARCHAR(20) DEFAULT 'active',
           started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           expires_at TIMESTAMP,
@@ -54,29 +53,47 @@ export async function GET() {
       );
     `);
 
-    // 5. إنشاء جدول تتبع استخدام الأجهزة (للزوار - لحل مشكلة الخطأ)
+    // 5. إنشاء جدول تتبع استخدام الأجهزة 
     await query(`
       CREATE TABLE IF NOT EXISTS feature_usage_by_device (
           id SERIAL PRIMARY KEY,
           device_fingerprint VARCHAR(255) NOT NULL,
-          feature_name VARCHAR(255) NOT NULL,
-          usage_count INTEGER DEFAULT 0,
-          used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          UNIQUE(device_fingerprint, feature_name)
+          used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
 
-    // 6. إنشاء جدول تتبع استخدام المستخدمين المسجلين
+    // 6. إنشاء جدول تتبع استخدام المستخدمين
     await query(`
       CREATE TABLE IF NOT EXISTS feature_usage_by_user (
           id SERIAL PRIMARY KEY,
           user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-          feature_name VARCHAR(255) NOT NULL,
-          usage_count INTEGER DEFAULT 0,
-          used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          UNIQUE(user_id, feature_name)
+          used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
+
+    // =========================================================
+    // 🚀 الحل السحري هنا: إضافة الأعمدة الناقصة إجبارياً إن لم تكن موجودة
+    // =========================================================
+    
+    // إضافة عمود feature_name لجدول الاشتراكات
+    await query(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS feature_name VARCHAR(100);`);
+    
+    // إضافة الأعمدة الناقصة لجدول تتبع الأجهزة
+    await query(`ALTER TABLE feature_usage_by_device ADD COLUMN IF NOT EXISTS feature_name VARCHAR(255);`);
+    await query(`ALTER TABLE feature_usage_by_device ADD COLUMN IF NOT EXISTS usage_count INTEGER DEFAULT 0;`);
+    
+    // إضافة الأعمدة الناقصة لجدول تتبع المستخدمين المسجلين
+    await query(`ALTER TABLE feature_usage_by_user ADD COLUMN IF NOT EXISTS feature_name VARCHAR(255);`);
+    await query(`ALTER TABLE feature_usage_by_user ADD COLUMN IF NOT EXISTS usage_count INTEGER DEFAULT 0;`);
+    
+    // إضافة القيود (UNIQUE constraints) لمنع تكرار البيانات
+    await query(`ALTER TABLE feature_usage_by_device DROP CONSTRAINT IF EXISTS unique_device_feature;`);
+    await query(`ALTER TABLE feature_usage_by_device ADD CONSTRAINT unique_device_feature UNIQUE(device_fingerprint, feature_name);`);
+    
+    await query(`ALTER TABLE feature_usage_by_user DROP CONSTRAINT IF EXISTS unique_user_feature;`);
+    await query(`ALTER TABLE feature_usage_by_user ADD CONSTRAINT unique_user_feature UNIQUE(user_id, feature_name);`);
+
+    // =========================================================
 
     // دالة تحديث updated_at
     await query(`
@@ -98,15 +115,7 @@ export async function GET() {
           EXECUTE FUNCTION update_updated_at_column();
     `);
 
-    // فهارس (Indexes) لتسريع البحث
-    await query(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);`);
-    await query(`CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone);`);
-    await query(`CREATE INDEX IF NOT EXISTS idx_verification_tokens_user_id ON verification_tokens(user_id);`);
-    await query(`CREATE INDEX IF NOT EXISTS idx_verification_tokens_token ON verification_tokens(token);`);
-    await query(`CREATE INDEX IF NOT EXISTS idx_user_devices_fingerprint ON user_devices(device_fingerprint);`);
-    await query(`CREATE INDEX IF NOT EXISTS idx_feature_usage_device ON feature_usage_by_device(device_fingerprint);`);
-
-    return NextResponse.json({ message: "تم إنشاء جميع الجداول بنجاح ✅" });
+    return NextResponse.json({ message: "تم إصلاح الجداول وإضافة الأعمدة بنجاح ✅" });
   } catch (error: any) {
     console.error(error);
     return NextResponse.json({ error: error.message }, { status: 500 });
