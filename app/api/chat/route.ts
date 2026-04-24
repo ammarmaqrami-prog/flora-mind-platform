@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
       if (apiKey) {
         try {
           const genAI = new GoogleGenerativeAI(apiKey);
-          const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+          const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
           const parts: any[] = [{ text: `${systemPrompt}\n\n${userPrompt}` }];
           for (const img of images) {
