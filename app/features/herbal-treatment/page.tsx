@@ -72,14 +72,34 @@ export default function HerbalTreatmentPage() {
 
     setIsLoading(true);
     try {
+      // 1. جلب التوكن من localStorage (الذي تم تخزينه عند تسجيل الدخول)
+      const token = localStorage.getItem("token"); 
+
+      // 2. استخراج أو إنشاء بصمة الجهاز
+      let fingerprint = localStorage.getItem("deviceFingerprint");
+      if (!fingerprint) {
+        fingerprint = "device_" + Math.random().toString(36).substring(2, 15);
+        localStorage.setItem("deviceFingerprint", fingerprint);
+      }
+
+      // 3. إرسال الطلب مع التوكن في الهيدر (Authorization)
       const response = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMessage, images: images || [] }),
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": token ? `Bearer ${token}` : "" // 👈 هذا هو السطر الحاسم!
+        },
+        body: JSON.stringify({ 
+          message: userMessage, 
+          images: images || [],
+          featureName: "العلاج بالأعشاب",
+          deviceFingerprint: fingerprint
+        }),
       });
+      
       const data = await response.json();
 
-      if (data.reply) {
+      if (response.ok && data.reply) {
         setMessages(prev => [...prev, { role: "assistant", content: "" }]);
         typeWriterEffect(data.reply, (partial) => {
           setMessages(prev => {
