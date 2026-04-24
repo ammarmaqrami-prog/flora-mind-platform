@@ -75,6 +75,10 @@ export async function GET() {
     // 🚀 الحل السحري هنا: إضافة الأعمدة الناقصة إجبارياً إن لم تكن موجودة
     // =========================================================
     
+    // إضافة بيانات المزارع لجدول المستخدمين
+    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS farmer_type VARCHAR(100);`);
+    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS experience_level VARCHAR(100);`);
+
     // إضافة عمود feature_name لجدول الاشتراكات
     await query(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS feature_name VARCHAR(100);`);
     
